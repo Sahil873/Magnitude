@@ -30,7 +30,7 @@ router.post("/register", async (req, res) => {
 
         if (role === "Player") {
             const player = new Player({
-                userId: user.id,
+                username: user.username,
                 // tournamentId: '', // Assign dynamically later
                 createdAt: new Date(),
                 updatedAt: new Date()
@@ -57,7 +57,7 @@ router.post("/login", async (req, res) => {
         if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
 
         const token = jwt.sign(
-            { userId: user._id, role: user.role },
+            { userid:user._id, username: user.username, role: user.role , email: user.email},
             JWT_SECRET,
             { expiresIn: "1h" }
         );
@@ -71,14 +71,15 @@ router.post("/login", async (req, res) => {
 
 router.get("/auth/profile", authMiddleware, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select("-password");
+        console.log(req.user);
+        const user = await User.findById(req.user.userid).select("-password");
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
 
         let player = null;
         if (user.role === "Player") {
-            player = await PlayerModel.findOne({ userId: user.id });
+            player = await Player.findOne({ userId: user.id });
         }
 
         res.status(200).json({ user, player });
