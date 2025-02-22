@@ -4,18 +4,28 @@ require("dotenv").config();
 // Middleware to verify JWT and extract user role
 const authMiddleware = (req, res, next) => {
     const token = req.header("Authorization");
-    console.log(token)
+    console.log("Raw Token:", token);  // Log the entire token
+
     if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
     try {
-        const decoded = jwt.verify(token.split(" ")[1], process.env.JWT_SECRET);
-        console.log(decoded);
-        req.user = decoded;  // Attach user info to request
+        const tokenParts = token.split(" ");
+        console.log(tokenParts)
+        if (tokenParts.length !== 2 || tokenParts[0] !== "Bearer") {
+            return res.status(400).json({ error: "Invalid token format" });
+        }
+
+        const decoded = jwt.verify(tokenParts[1], process.env.JWT_SECRET);
+        // console.log("Decoded Token:", decoded);  // Log decoded token
+
+        req.user = decoded;
         next();
     } catch (error) {
+        console.error("JWT Verification Error:", error);
         res.status(401).json({ error: "Invalid or expired token" });
     }
 };
+
 
 module.exports = authMiddleware;
 
