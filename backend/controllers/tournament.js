@@ -97,15 +97,40 @@ router.get("/tournaments", async (req, res) => {
  * @desc Get tournament details by ID
  */
 router.get("/tournament/:id", async (req, res) => {
-  try {
-    const tournament = await Tournament.findById(req.params.id);
-    if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-
-    res.status(200).json(tournament);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching tournament", error: error.message });
-  }
-});
+    try {
+      const tournament = await Tournament.findById(req.params.id)
+        .populate({
+          path: "Teams",
+          populate: { path: "players" } // Populate players inside each team
+        })
+        .populate({
+          path: "schedule",
+          populate: [{ path: "teamAId" }, { path: "teamBId" }] // Populate both teamAId and teamBId inside schedule
+        });
+  
+      if (!tournament) {
+        return res.status(404).json({ message: "Tournament not found" });
+      }
+  
+      // Transform the response
+      const transformedTournament = {
+        ...tournament.toObject(),
+        schedule: tournament.schedule.map(match => ({
+          ...match.toObject(),
+          teamA: match.teamAId ? match.teamAId.name : null, // Replace teamAId with teamA (name)
+          teamB: match.teamBId ? match.teamBId.name : null, // Replace teamBId with teamB (name)
+          teamAId: undefined, // Remove teamAId field
+          teamBId: undefined,  // Remove teamBId field
+          __v: undefined
+        }))
+      };
+  
+      res.status(200).json(transformedTournament);
+    } catch (error) {
+      res.status(500).json({ message: "Error fetching tournament", error: error.message });
+    }
+  });
+  
 
 /**
  * @route PUT /tournament/:id
