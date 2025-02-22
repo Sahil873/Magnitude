@@ -81,7 +81,7 @@ const OrganizerDashboard = () => {
         `${BACKEND_URL}/tournament`,
         {
           name: formData.name,
-          teams: formData.teams,
+          Teams: formData.teams,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
