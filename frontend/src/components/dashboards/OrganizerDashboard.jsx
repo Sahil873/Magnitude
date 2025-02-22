@@ -12,26 +12,33 @@ const OrganizerDashboard = () => {
     numberOfTeams: 0,
     teams: [],
   });
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Role-based access control and data fetching
   useEffect(() => {
     const checkAuthAndFetchData = async () => {
       try {
+        setIsLoading(true);
         const token = localStorage.getItem("token");
 
-        // Check authentication
-        // if (!token) {
-        //   navigate("/login");
-        //   return;
-        // }
+        if (!token) {
+          navigate("/login");
+          return;
+        }
 
-        // Fetch tournaments if authenticated
         const response = await axios.get(`${BACKEND_URL}/tournaments`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setTournaments(response.data);
+        setError(null);
       } catch (error) {
+        setError(
+          error.response?.data?.message || "Failed to fetch tournaments"
+        );
         console.error("Error:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -59,7 +66,17 @@ const OrganizerDashboard = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Validate team names are not empty
+      if (formData.teams.some((team) => !team.name.trim())) {
+        throw new Error("All team names are required");
+      }
+
       const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
       const response = await axios.post(
         `${BACKEND_URL}/tournaments`,
         {
@@ -81,14 +98,25 @@ const OrganizerDashboard = () => {
         teams: [],
       });
     } catch (error) {
+      setError(error.message || "Failed to create tournament");
       console.error("Error creating tournament:", error);
     }
+  };
+
+  const handleViewDetails = (tournamentId) => {
+    navigate(`/${BACKEND_URL}/tournaments/${tournamentId}`);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-lg shadow p-6">
+          {/* Show error message if exists */}
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error}
+            </div>
+          )}
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">
               Organizer Dashboard
@@ -96,33 +124,46 @@ const OrganizerDashboard = () => {
             <button
               onClick={() => setShowModal(true)}
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              disabled={isLoading}
             >
               Create Tournament
             </button>
           </div>
 
-          {/* Tournaments List */}
-          <div className="mt-6">
-            <h2 className="text-xl font-semibold mb-4">Your Tournaments</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tournaments.map((tournament) => (
-                <div
-                  key={tournament._id}
-                  className="bg-white p-4 rounded-lg shadow border"
-                >
-                  <h3 className="font-bold text-lg">{tournament.name}</h3>
-                  <p className="text-gray-600">
-                    Teams: {tournament.teams.length}
-                  </p>
-                  <div className="mt-2">
-                    <button className="text-blue-500 hover:text-blue-700">
-                      View Details
-                    </button>
-                  </div>
+          {/* Show loading state */}
+          {isLoading ? (
+            <div className="text-center py-4">Loading tournaments...</div>
+          ) : (
+            /* Tournaments List */
+            <div className="mt-6">
+              <h2 className="text-xl font-semibold mb-4">Your Tournaments</h2>
+              {tournaments.length === 0 ? (
+                <p className="text-gray-500">No tournaments created yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tournaments.map((tournament) => (
+                    <div
+                      key={tournament._id}
+                      className="bg-white p-4 rounded-lg shadow border hover:shadow-lg transition-shadow"
+                    >
+                      <h3 className="font-bold text-lg">{tournament.name}</h3>
+                      <p className="text-gray-600">
+                        Teams: {tournament.Teams?.length || 0}
+                      </p>
+                      <div className="mt-4">
+                        <button
+                          onClick={() => handleViewDetails(tournament._id)}
+                          className="text-blue-500 hover:text-blue-700 font-medium"
+                        >
+                          View Details →
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
+          )}
 
           {/* Create Tournament Modal */}
           {showModal && (
