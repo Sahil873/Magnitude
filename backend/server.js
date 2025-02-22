@@ -3,11 +3,14 @@ const express = require("express");
 const mongoose = require("mongoose");
 const authRoutes = require("./routes/authRoutes");
 const tournament = require("./controllers/tournament");
+const player = require("./controllers/player");
+
 const app = express();
 app.use(express.json());
 
 app.use("/", authRoutes);
 app.use("/", tournament);
+app.use("/",player);
 
 
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })

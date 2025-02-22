@@ -2,20 +2,21 @@ const express = require("express");
 const Tournament = require("../models/Tournament"); // Import Tournament model
 // const { authMiddleware, isOrganizer, isPlayer, isReferee } = require("../middlewares/auth");
 const authMiddleware = require("../middlewares/auth");
-
+const Player=require("../models/Player");
+const { Heap } = require("heap-js");
 const router = express.Router();
-
+const Team = require("../models/Team");
 /**
  * @route POST /tournament
  * @desc Create a tournament (Only Organizer)
  */
 router.post("/tournament", authMiddleware, async (req, res) => {
   try {
-    console.log(req.user);
+    console.log(req.body);
     if(req.user.role !== "Organizer"){
         return res.status(403).json({ message: "Unauthorized to create a tournament" });
     }
-    const { name, startDate, endDate, location, Teams } = req.body;
+    const { name, startDate, endDate, location, Teams , schedule, playoff} = req.body;
 
     if (!req.user || !req.user.userid) {
       return res.status(403).json({ message: "Unauthorized" });
@@ -28,6 +29,8 @@ router.post("/tournament", authMiddleware, async (req, res) => {
       location,
       organizerId: req.user.userid,
       Teams,
+      schedule,
+      playoff,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -56,7 +59,7 @@ router.get("/tournaments", async (req, res) => {
  * @route GET /tournament/:id
  * @desc Get tournament details by ID
  */
-router.get("/tournament/:id", authMiddleware, async (req, res) => {
+router.get("/tournament/:id", async (req, res) => {
   try {
     const tournament = await Tournament.findById(req.params.id);
     if (!tournament) return res.status(404).json({ message: "Tournament not found" });
@@ -71,14 +74,15 @@ router.get("/tournament/:id", authMiddleware, async (req, res) => {
  * @route PUT /tournament/:id
  * @desc Update a tournament (Only Organizer)
  */
-router.put("/tournament/:id", async (req, res) => {
+router.put("/tournament/:id", authMiddleware, async (req, res) => {
   try {
     const tournament = await Tournament.findById(req.params.id);
     if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-
-    if (tournament.organizerId.toString() !== req.user.id) {
-      return res.status(403).json({ message: "Unauthorized to update this tournament" });
-    }
+    console.log(tournament.organizerId.toString());
+    console.log(req.user.userid);
+    if (tournament.organizerId.toString() !== req.user.userid) {
+        return res.status(403).json({ message: "Unauthorized to delete this tournament" });
+      }
 
     const updatedTournament = await Tournament.findByIdAndUpdate(
       req.params.id,
@@ -96,20 +100,81 @@ router.put("/tournament/:id", async (req, res) => {
  * @route DELETE /tournament/:id
  * @desc Delete a tournament (Only Organizer)
  */
-router.delete("/tournament/:id", async (req, res) => {
+router.delete("/tournament/:id", authMiddleware, async (req, res) => {
   try {
+    if(req.user.role !== "Organizer"){
+        return res.status(403).json({ message: "Unauthorized to delete a tournament" });
+    }
     const tournament = await Tournament.findById(req.params.id);
     if (!tournament) return res.status(404).json({ message: "Tournament not found" });
-
-    if (tournament.organizerId.toString() !== req.user.id) {
+    // console.log(tournament.organizerId.toString());
+    // console.log(req.user.userid);
+    if (tournament.organizerId.toString() !== req.user.userid) {
       return res.status(403).json({ message: "Unauthorized to delete this tournament" });
     }
-
+    
     await Tournament.findByIdAndDelete(req.params.id);
     res.status(200).json({ message: "Tournament deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting tournament", error: error.message });
   }
+});
+
+router.post("/tournament/:id/autoallocate", authMiddleware, async (req, res) => {
+    try {
+
+        if (req.user.role !== "Organizer") {
+            return res.status(403).json({ message: "Unauthorized to create a tournament" });
+        }
+
+        const players = await Player.find();
+        const tournament = await Tournament.findById(req.params.id);
+        console.log(tournament);
+        if (!tournament) {
+            return res.status(404).json({ message: "Tournament not found" });
+        }
+
+        let teams = tournament.Teams; // Ensure teams exist
+        if (!teams || teams.length === 0) {
+            return res.status(400).json({ message: "Tournament has no teams to allocate players" });
+        }
+
+        // Priority queue (MaxHeap) based on player score
+        const pq = new Heap((a, b) => b.score - a.score); // MaxHeap: highest score first
+        pq.init(players);
+
+        let n = teams.length;
+        let idx = 0;
+
+        while (!pq.isEmpty()) {
+            const player = pq.pop();
+
+            // Ensure team has a `players` array
+            if (!teams[idx].players) {
+                teams[idx].players = [];
+            }
+
+            if (teams[idx].players.length < 11) { // Limit team size to 11 players
+                teams[idx].players.push(player._id);
+            }else{
+                continue;
+            }
+
+            idx = (idx + 1) % n; // Round-robin allocation
+        }
+
+        for(let i=0;i<teams.length;i++){
+            // await teams[i].save();
+        }
+
+        tournament.Teams = teams; // Correct assignment
+        await tournament.save();
+
+        res.status(201).json({ message: "Players allocated successfully", tournament });
+
+    } catch (error) {
+        res.status(500).json({ message: "Error allocating players", error: error.message });
+    }
 });
 
 module.exports = router;
