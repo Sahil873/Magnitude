@@ -78,7 +78,7 @@ const OrganizerDashboard = () => {
       }
 
       const response = await axios.post(
-        `${BACKEND_URL}/tournaments`,
+        `${BACKEND_URL}/tournament`,
         {
           name: formData.name,
           teams: formData.teams,
@@ -104,7 +104,7 @@ const OrganizerDashboard = () => {
   };
 
   const handleViewDetails = (tournamentId) => {
-    navigate(`/${BACKEND_URL}/tournaments/${tournamentId}`);
+    navigate(`/tournaments/${tournamentId}`);
   };
 
   return (
