@@ -4,9 +4,16 @@ const mongoose = require("mongoose");
 const authRoutes = require("./routes/authRoutes");
 const tournament = require("./controllers/tournament");
 const player = require("./controllers/player");
+const cors=require('cors');
 
 const app = express();
 app.use(express.json());
+
+app.use(cors({
+    origin: "*",
+    credentials: true,
+}));
+
 
 app.use("/", authRoutes);
 app.use("/", tournament);
