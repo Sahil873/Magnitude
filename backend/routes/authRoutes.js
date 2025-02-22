@@ -1,3 +1,4 @@
+// routes/authRoutes.js
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
@@ -71,14 +72,14 @@ router.post("/login", async (req, res) => {
 
 router.get("/auth/profile", authMiddleware, async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select("-password");
+        const user = await User.findById(req.user.userId).select("-password");
         if (!user) {
             return res.status(404).json({ error: "User not found" });
         }
 
         let player = null;
         if (user.role === "Player") {
-            player = await PlayerModel.findOne({ userId: user.id });
+            player = await Player.findOne({ userId: user.id });
         }
 
         res.status(200).json({ user, player });
